@@ -1,0 +1,34 @@
+{
+  "name": "claude-revive",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Restaure les sessions Claude Code perdues quand Windows Terminal est fermé ou crashe",
+  "license": "MIT",
+  "repository": "github:Raalii/claude-revive",
+  "type": "module",
+  "bin": {
+    "revive": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "scripts"
+  ],
+  "os": [
+    "win32"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepare": "tsc"
+  },
+  "dependencies": {
+    "@inquirer/checkbox": "^5.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}
