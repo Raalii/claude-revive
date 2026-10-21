@@ -104,7 +104,7 @@ function notifyCommand([action, kind]: string[]): void {
 
   if (action === "test") {
     registerApp();
-    showToast({ title: "✅ revive : test", body: "Les notifications fonctionnent.", tag: "revive-test" });
+    showToast({ title: "✅ revive : test", body: "Les notifications fonctionnent.", tag: "revive-test", color: "#3B82F6" });
     console.log("Notification de test envoyée.");
     return;
   }

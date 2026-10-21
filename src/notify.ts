@@ -1,6 +1,8 @@
 // Notifications Windows : enregistrement de l'appli auprès de Windows et envoi d'un toast.
 import { spawnSync } from "node:child_process";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { REVIVE_DIR } from "./registry.js";
 
 const SCRIPTS = fileURLToPath(new URL("../scripts/", import.meta.url));
 export const APP_ID = "ClaudeRevive";
@@ -13,6 +15,7 @@ export interface Toast {
   tag: string; // un toast par session : le suivant remplace le précédent
   watch?: string; // nom de l'onglet : pas de toast si l'utilisateur le regarde déjà
   launch?: string; // URI ouverte au clic (revive:focus?t=...)
+  color?: string; // couleur de l'onglet : pastille à gauche du titre
 }
 
 function reg(args: string[]): boolean {
@@ -46,7 +49,11 @@ export function focusUri(tabTitle: string): string {
 // Les données passent en base64 : un argument ASCII évite les soucis d'encodage et de
 // guillemets de PowerShell 5.1 avec les accents et les messages multilignes.
 export function showToast(toast: Toast): void {
-  const data = Buffer.from(JSON.stringify({ ...toast, appId: APP_ID }), "utf8").toString("base64");
+  // Pastille générée par notify.ps1 au premier usage d'une couleur, puis réutilisée
+  const icon = toast.color && /^#[0-9a-f]{6}$/i.test(toast.color)
+    ? path.join(REVIVE_DIR, "icons", `${toast.color.slice(1).toLowerCase()}.png`)
+    : undefined;
+  const data = Buffer.from(JSON.stringify({ ...toast, icon, appId: APP_ID }), "utf8").toString("base64");
   spawnSync(
     "powershell.exe",
     ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", `${SCRIPTS}notify.ps1`, "-Data", data],

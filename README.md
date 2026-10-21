@@ -62,7 +62,7 @@ directement dans le bon onglet.
 
 | Notification | Quand |
 |---|---|
-| ✅ **API a terminé** | Claude a fini de répondre (avec le début de sa réponse) |
+| ✅ **API a terminé** | Claude a fini de répondre (avec le début de sa réponse, et une pastille de la couleur de l'onglet) |
 | ⏳ **API : 2 tâches en cours** | Claude a fini son tour mais des agents ou commandes tournent encore en arrière-plan ; un ✅ suivra quand ils auront fini |
 | ✋ **API attend ta validation** | une permission est demandée, la session est bloquée |
 

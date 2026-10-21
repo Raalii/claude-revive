@@ -1,6 +1,6 @@
 # Affiche une notification Windows pour une session Claude Code, sauf si l'utilisateur
 # regarde déjà l'onglet de cette session (onglet actif de la fenêtre au premier plan).
-# -Data : JSON encodé en base64 { title, body, tag, watch, launch, appId }
+# -Data : JSON encodé en base64 { title, body, tag, watch, launch, color, icon, appId }
 param(
   [Parameter(Mandatory = $true)][string]$Data,
   [long]$Hwnd = 0 # tests : fenêtre à considérer comme au premier plan
@@ -43,7 +43,30 @@ public static class ReviveFg { [DllImport("user32.dll")] public static extern In
 
 function Esc([string]$s) { [System.Security.SecurityElement]::Escape($s) }
 $launch = if ($d.launch) { " activationType=`"protocol`" launch=`"$(Esc $d.launch)`"" } else { '' }
-$xml = "<toast$launch><visual><binding template=`"ToastGeneric`"><text>$(Esc $d.title)</text><text>$(Esc $d.body)</text></binding></visual></toast>"
+
+# Pastille de la couleur de l'onglet, à gauche du titre ; dessinée une fois par couleur.
+# Sans elle (échec, couleur absente), la notification part quand même.
+$image = ''
+if ($d.icon -and $d.color) {
+  try {
+    if (-not (Test-Path $d.icon)) {
+      Add-Type -AssemblyName System.Drawing
+      [void](New-Item -ItemType Directory -Force (Split-Path $d.icon))
+      $bmp = New-Object System.Drawing.Bitmap 96, 96
+      $g = [System.Drawing.Graphics]::FromImage($bmp)
+      $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+      $g.FillEllipse((New-Object System.Drawing.SolidBrush ([System.Drawing.ColorTranslator]::FromHtml($d.color))), 2, 2, 92, 92)
+      $g.Dispose()
+      $tmp = "$($d.icon).$PID.tmp"
+      $bmp.Save($tmp, [System.Drawing.Imaging.ImageFormat]::Png)
+      $bmp.Dispose()
+      Move-Item -Force $tmp $d.icon
+    }
+    $image = "<image placement=`"appLogoOverride`" src=`"$(Esc ([Uri]$d.icon).AbsoluteUri)`"/>"
+  } catch { $image = '' }
+}
+
+$xml = "<toast$launch><visual><binding template=`"ToastGeneric`"><text>$(Esc $d.title)</text><text>$(Esc $d.body)</text>$image</binding></visual></toast>"
 
 $doc = New-Object Windows.Data.Xml.Dom.XmlDocument
 $doc.LoadXml($xml)

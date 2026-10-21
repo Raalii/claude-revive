@@ -11,6 +11,9 @@ import { focusUri, plain, showToast } from "./notify.js";
 import { CLAUDE_DIR, readRecord, tabPath, writeRecord } from "./registry.js";
 import { sessionTitle, tabCapture } from "./sessions.js";
 const CAPTURE_SCRIPT = fileURLToPath(new URL("../scripts/capture-tab.ps1", import.meta.url));
+// Abonnement aux commentaires d'un artifact publié : ouvert sans fin, ce n'est pas du travail
+// en cours (une session qui a publié n'enverrait sinon jamais de ✅)
+const ARTIFACT_WATCH = /^live updates for artifact /;
 // input.cwd suit les déplacements de la session dans un sous-dossier ; le fichier PID de
 // Claude garde le dossier de départ, le seul où --resume retrouve la session.
 function startDir() {
@@ -34,7 +37,7 @@ function buildToast(input, rec, notify) {
     if (input.hook_event_name === "Stop" && notify.done) {
         // Claude a fini son tour mais des agents ou commandes tournent encore : il reprendra
         // la main quand ils auront fini, et un nouveau Stop suivra
-        const tasks = input.background_tasks ?? [];
+        const tasks = (input.background_tasks ?? []).filter((t) => !(t.type === "monitor" && ARTIFACT_WATCH.test(t.description ?? "")));
         if (tasks.length > 0) {
             const n = tasks.length;
             return {
@@ -43,7 +46,12 @@ function buildToast(input, rec, notify) {
                 body: plain(tasks.map((t) => t.description || t.type || "").join(" · "), 180),
             };
         }
-        return { ...base, title: `✅ ${name} a terminé`, body: plain(input.last_assistant_message ?? "", 180) };
+        return {
+            ...base,
+            title: `✅ ${name} a terminé`,
+            body: plain(input.last_assistant_message ?? "", 180),
+            color: tab?.color || undefined,
+        };
     }
     if (input.hook_event_name === "Notification" && notify.permission) {
         if (input.notification_type === "permission_prompt") {
