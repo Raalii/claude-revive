@@ -1,13 +1,22 @@
-// Hook Claude Code (SessionStart, UserPromptSubmit, SessionEnd) : met à jour la fiche
-// de la session dans le registre. Ne doit jamais rien écrire sur stdout (SessionStart
-// injecterait la sortie dans le contexte) ni faire échouer la session.
+// Hook Claude Code (SessionStart, UserPromptSubmit, Stop, Notification, SessionEnd) : met à
+// jour la fiche de la session dans le registre et envoie les notifications si elles sont
+// activées. Ne doit jamais rien écrire sur stdout (SessionStart injecterait la sortie dans
+// le contexte) ni faire échouer la session.
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadConfig, type NotifyConfig } from "./config.js";
+import { focusUri, plain, showToast, type Toast } from "./notify.js";
 import { CLAUDE_DIR, readRecord, tabPath, writeRecord, type SessionRecord } from "./registry.js";
+import { sessionTitle, tabCapture } from "./sessions.js";
 
 const CAPTURE_SCRIPT = fileURLToPath(new URL("../scripts/capture-tab.ps1", import.meta.url));
+
+interface BackgroundTask {
+  type?: string;
+  description?: string;
+}
 
 interface HookInput {
   hook_event_name?: string;
@@ -17,6 +26,10 @@ interface HookInput {
   source?: string;
   reason?: string;
   prompt?: string;
+  last_assistant_message?: string; // Stop
+  background_tasks?: BackgroundTask[]; // Stop : tâches encore en cours (running / pending)
+  notification_type?: string; // Notification : permission_prompt, elicitation_dialog, idle_prompt...
+  message?: string; // Notification
 }
 
 // input.cwd suit les déplacements de la session dans un sous-dossier ; le fichier PID de
@@ -38,6 +51,46 @@ function captureTab(sessionId: string): void {
     ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", CAPTURE_SCRIPT, "-Out", tabPath(sessionId)],
     { stdio: "ignore", windowsHide: true, timeout: 10_000 },
   );
+}
+
+function buildToast(input: HookInput, rec: SessionRecord, notify: NotifyConfig): Toast | undefined {
+  const tab = tabCapture(rec.sessionId);
+  const name = tab?.title || sessionTitle(rec);
+  const base = { tag: rec.sessionId, watch: name, launch: rec.wtSession ? focusUri(name) : undefined };
+
+  if (input.hook_event_name === "Stop" && notify.done) {
+    // Claude a fini son tour mais des agents ou commandes tournent encore : il reprendra
+    // la main quand ils auront fini, et un nouveau Stop suivra
+    const tasks = input.background_tasks ?? [];
+    if (tasks.length > 0) {
+      const n = tasks.length;
+      return {
+        ...base,
+        title: `⏳ ${name} : ${n} tâche${n > 1 ? "s" : ""} en cours`,
+        body: plain(tasks.map((t) => t.description || t.type || "").join(" · "), 180),
+      };
+    }
+    return { ...base, title: `✅ ${name} a terminé`, body: plain(input.last_assistant_message ?? "", 180) };
+  }
+
+  if (input.hook_event_name === "Notification" && notify.permission) {
+    if (input.notification_type === "permission_prompt") {
+      return { ...base, title: `✋ ${name} attend ta validation`, body: plain(input.message ?? "", 180) };
+    }
+    if (input.notification_type === "elicitation_dialog") {
+      return { ...base, title: `❓ ${name} attend une réponse`, body: plain(input.message ?? "", 180) };
+    }
+  }
+  return undefined;
+}
+
+function notifyIfWanted(input: HookInput, rec: SessionRecord): void {
+  if (input.hook_event_name !== "Stop" && input.hook_event_name !== "Notification") return;
+  if (rec.entrypoint && rec.entrypoint !== "cli") return; // claude -p, SDK
+  const { notify } = loadConfig();
+  if (!notify.enabled) return;
+  const toast = buildToast(input, rec, notify);
+  if (toast) showToast(toast);
 }
 
 function handle(input: HookInput): void {
@@ -70,6 +123,7 @@ function handle(input: HookInput): void {
   }
 
   writeRecord(rec);
+  notifyIfWanted(input, rec);
 }
 
 let raw = "";

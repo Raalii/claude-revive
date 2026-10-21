@@ -2,10 +2,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { unregisterApp } from "./notify.js";
 import { CLAUDE_DIR } from "./registry.js";
 
 const SETTINGS = path.join(CLAUDE_DIR, "settings.json");
-const EVENTS = ["SessionStart", "UserPromptSubmit", "SessionEnd"];
+const EVENTS = ["SessionStart", "UserPromptSubmit", "Stop", "Notification", "SessionEnd"];
+// Relevé d'onglet et notifications prennent une demi-seconde : en arrière-plan pour ne
+// retarder ni le prompt ni la session. SessionStart et SessionEnd restent synchrones :
+// à la fermeture de la fenêtre, un hook en arrière-plan serait coupé.
+const ASYNC_EVENTS = new Set(["UserPromptSubmit", "Stop", "Notification"]);
 
 interface HookCommand {
   type: string;
@@ -63,9 +68,7 @@ export function install(): { settings: string; backup: string | null; script: st
   const hooks = { ...(settings.hooks ?? {}) };
   for (const event of EVENTS) {
     const command: HookCommand = { type: "command", command: "node", args: [script], timeout: 15 };
-    // UserPromptSubmit relève l'onglet (une demi-seconde) : en arrière-plan pour ne pas retarder le prompt.
-    // SessionEnd reste synchrone : à la fermeture de la fenêtre, un hook en arrière-plan serait coupé.
-    if (event === "UserPromptSubmit") command.async = true;
+    if (ASYNC_EVENTS.has(event)) command.async = true;
     hooks[event] = [...(hooks[event] ?? []), { hooks: [command] }];
   }
   const backup = writeSettings({ ...settings, hooks });
@@ -73,6 +76,7 @@ export function install(): { settings: string; backup: string | null; script: st
 }
 
 export function uninstall(): { settings: string; backup: string | null } {
+  unregisterApp();
   const backup = writeSettings(withoutOurs(readSettings()));
   return { settings: SETTINGS, backup };
 }

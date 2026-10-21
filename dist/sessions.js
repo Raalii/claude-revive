@@ -96,7 +96,7 @@ function runningClaudePids() {
 // Nom et couleur relevés sur l'onglet Windows Terminal. On retient le relevé le plus récent
 // qui revient deux fois de suite : un relevé isolé peut venir d'un autre onglet si
 // l'utilisateur a changé d'onglet juste après avoir validé son prompt.
-function tabCapture(sessionId) {
+export function tabCapture(sessionId) {
     let captures;
     try {
         captures = JSON.parse(fs.readFileSync(tabPath(sessionId), "utf8").replace(/^﻿/, "")).captures ?? [];

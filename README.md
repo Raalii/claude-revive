@@ -54,6 +54,31 @@ rouvrir dans une nouvelle fenêtre.
 | `revive -n` | afficher la commande `wt` sans la lancer |
 | `revive -a` / `revive -s 72` | chercher plus loin que 24 h |
 
+## Notifications (optionnel)
+
+Plusieurs sessions qui bossent en parallèle ? revive peut t'envoyer une notification Windows quand
+l'une d'elles a besoin de toi, avec le nom de son onglet. Un clic sur la notification te ramène
+directement dans le bon onglet.
+
+| Notification | Quand |
+|---|---|
+| ✅ **API a terminé** | Claude a fini de répondre (avec le début de sa réponse) |
+| ⏳ **API : 2 tâches en cours** | Claude a fini son tour mais des agents ou commandes tournent encore en arrière-plan ; un ✅ suivra quand ils auront fini |
+| ✋ **API attend ta validation** | une permission est demandée, la session est bloquée |
+
+Pas de notification pour l'onglet que tu as sous les yeux. Une seule notification par session :
+la suivante remplace la précédente.
+
+Désactivées par défaut, activables à la demande :
+
+```powershell
+revive notify on            # activer
+revive notify off           # tout couper
+revive notify off done      # garder seulement les demandes de validation
+revive notify               # voir l'état
+revive notify test          # envoyer une notification de test
+```
+
 ## Ce qui revient (et ce qui ne revient pas)
 
 ✅ Les sessions fermées par la croix (onglet ou fenêtre) et celles tuées par un crash.
@@ -85,13 +110,18 @@ réinstalle, lance `revive uninstall`, puis désinstalle.
 
 ## Sous le capot
 
-- **Registre** : les hooks `SessionStart`, `UserPromptSubmit` et `SessionEnd` tiennent une fiche
+- **Registre** : les hooks `SessionStart`, `UserPromptSubmit`, `Stop`, `Notification` et `SessionEnd` tiennent une fiche
   par session dans `~/.claude-revive/sessions/` (dossier de départ, transcript, PID, raison de
   fin). Rien ne quitte ta machine.
 - **Nom et couleur d'onglet** : Windows Terminal n'expose ses réglages d'onglet à aucun programme.
   À chaque message, l'onglet actif est forcément celui de la session : `scripts/capture-tab.ps1`
   lit son nom via UI Automation (l'API des lecteurs d'écran) et sa couleur sur un pixel de
   l'écran. Le hook tourne en `async`, il ne retarde pas tes messages.
+- **Notifications** : `Stop` fournit la dernière réponse et la liste des tâches encore en cours,
+  `Notification` signale les permissions demandées. Le toast est envoyé par `scripts/notify.ps1`
+  sous le nom « Claude Revive » ; le clic ouvre `revive:focus?t=<onglet>`, un protocole déclaré
+  dans le registre utilisateur, qui sélectionne l'onglet via UI Automation. `revive uninstall`
+  retire ces entrées.
 - **Pas de doublon** : une session encore ouverte (fichier `~/.claude/sessions/<pid>.json` +
   processus vivant) n'est jamais proposée.
 - **Relance** : `wt -w new new-tab -d <dossier> --title <nom> --tabColor <couleur> claude --resume <id>`
