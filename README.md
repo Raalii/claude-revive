@@ -27,7 +27,7 @@ PS> revive
 Il te faut Windows 10/11 avec Windows Terminal, Node.js 20+ et Claude Code à jour (`claude update`).
 
 ```powershell
-npm install -g github:Raalii/claude-revive
+npm install -g https://github.com/Raalii/claude-revive/tarball/main
 revive install
 ```
 
@@ -72,10 +72,12 @@ subagents) : `--resume` récupère la conversation, pas les processus.
 ## Mise à jour / désinstallation
 
 ```powershell
-npm install -g github:Raalii/claude-revive   # mise à jour
+# mise à jour
+npm install -g https://github.com/Raalii/claude-revive/tarball/main
 
-revive uninstall                             # retire les hooks (à faire AVANT…)
-npm uninstall -g claude-revive               # …de supprimer le paquet
+# désinstallation : retirer les hooks AVANT de supprimer le paquet
+revive uninstall
+npm uninstall -g claude-revive
 ```
 
 Paquet supprimé sans `revive uninstall` ? Chaque session Claude affichera une erreur de hook :
