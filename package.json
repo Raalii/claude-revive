@@ -21,8 +21,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
-    "prepare": "tsc"
+    "dev": "tsc --watch"
   },
   "dependencies": {
     "@inquirer/checkbox": "^5.2.6"
